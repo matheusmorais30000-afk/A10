@@ -1,0 +1,109 @@
+
+Atue como um Engenheiro de Software Sênior especializado em Node.js e Discord.js (versão 14+). Eu preciso do código completo e estruturado para um Bot de Discord focado em gerenciamento de partidas competitivas de Free Fire (Apostas/Wagers). O bot deve ser modular, usar banco de dados (sugira Supabase ou JSON local robusto) e ter tratamento de erros.
+
+Estrutura do Projeto
+1. Definições e Variáveis Globais
+O bot deve permitir a personalização de embeds usando as seguintes 
+
+variáveis de substituição no texto:
+{{MODALIDADE}} (Mobile, Emulador, Tático, Misto)
+{{TIPO}} (1v1, 2v2, 3v3, 4v4)
+{{PREÇO}} (Valor extraído da configuração)
+
+
+2. Hierarquia de Cargos (Permissões)
+O sistema deve verificar IDs de cargos configurados no /config.
+Analista (SS): Nível mais alto (acima de Mediador e Suporte).
+Mediador: Intermediário das partidas.
+Suporte: Responsável por tickets.
+Blacklist: Usuários com este status não podem entrar em filas.
+
+
+3. Comandos Principais
+
+/config (Painel Administrativo)
+Deve abrir uma Embed visualmente agradável com Botões interativos:
+VALORES: Adicionar, Remover e Limpar preços das apostas.
+CARGOS: Setar os IDs dos cargos (Analista, Mediador, Suporte).
+LOGS: Configurar canais de log:
+Geral: Ações administrativas (Visível apenas para o Dono).
+Partidas: Início/Fim de partidas (Público).
+Mediador: Entrada/Saída do painel de mediadores.
+MEDIADOR: Construtor de Embed (Preview em tempo real). Configurar Título, Descrição, Footer, Cor, Imagem. Botão para definir o canal onde o "Painel de Mediador" será postado.
+EMBEDS: Construtor de Embeds para as partidas (Mesmas opções de customização acima).
+TICKET: Construtor de Embed de Ticket. Deve permitir definir Categoria de abertura e Canal de postagem. O ticket deve vir com Select Menu: "Parcerias", "Suporte", "Virar Influencer".
+RANKING: Construtor de Embed de Ranking. Botão para definir canal. A embed final terá botões: "Perfil" (Vitorias/Derrotas/Coins) e "Top 10" (Ranking do servidor).
+
+
+/pix
+Uso obrigatório para Mediadores.
+Registra a chave PIX do mediador no banco de dados.
+O mediador não pode entrar no painel de trabalho sem ter registrado o PIX.
+
+
+/black (Restrito: Analista/Mediador)
+Painel para Adicionar/Remover usuários da Blacklist.
+Adicionar: Seleciona @usuario e escreve o Motivo.
+Remover: Seleciona @usuario e escreve o Motivo.
+Todas as ações devem ser enviadas para o canal de Logs Gerais.
+
+
+.p @usuario
+Exibe o perfil do usuário mencionado (Vitórias, Derrotas, Saldo de Coins).
+
+
+/filas (Setup de Categorias)
+Menu de Seleção: Escolha a Modalidade (Mobile, Emulador, Tático, Misto).
+Após escolher, pede o ID da Categoria do Discord.
+Ação Automática: O bot deve criar os canais de voz/texto dentro dessa categoria baseados na modalidade (ex: se Mobile -> cria canais 1v1, 2v2, 3v3, 4v4) e enviar a Embed de Partida configurada com o valor correto em cada canal.
+
+
+/vencedor (Uso: Mediador)
+Comando: /vencedor @ganhador @perdedor.
+Lógica: +1 Vitória/+1 Coin para o ganhador; +1 Derrota para o perdedor.
+
+
+/id (Uso: Mediador)
+Comando: /id [sala] [senha].
+Envia uma embed bonita no canal da partida com ID e Senha para os jogadores copiarem.
+
+
+4. Lógica de Partidas e Botões
+Botões de Entrada por Modalidade
+As embeds de fila devem ter botões específicos:
+1v1 Mobile: "Gelo Infinito", "Gelo Normal", "Sair".
+2v2/3v3/4v4 Mobile: "Entrar", "Full UMP XM8", "Sair".
+1v1 Emulador: "Gelo Infinito", "Gelo Normal", "Sair".
+Time Emulador: "Entrar", "Full UMP XM8", "Sair".
+Tático (Todos): "Entrar", "Sair".
+Misto:
+2v2: "1 Emu", "Sair".
+3v3: "1 Emu", "2 Emu", "Sair".
+4v4: "1 Emu", "2 Emu", "3 Emu", "Sair".
+
+
+Fluxo de Partida
+
+Matchmaking: Quando a sala enche (ex: 2 players no 1v1), o bot cria um Canal Privado (texto) na categoria configurada.
+Painel de Confirmação: No canal criado, envia uma embed com botões:
+Confirmar: Ambos os times devem clicar.
+Encerrar: Deleta o canal.
+Pagamento (Pix):
+Quando ambos clicam em "Confirmar", o bot busca a Chave Pix do Mediador da partida.
+Geração de QR Code: O bot deve gerar um QR Code da chave Pix (use lib de qrcode) e enviar no chat para os jogadores pagarem.
+Vai aparecer o Botão de analise apos os 2 confirmarem
+Análise: Abre modal para pedir análise (Inputs: @usuario, Motivo, Tipo de Análise). Envia log para analistas.
+
+
+
+QUANDO 1 pessoa entrar na fila de partida ( ou o mediador entrar na embed de mediador ) O @dele aparece na embed e quando sai o @dele sai tambem ) 
+
+
+QUERO UM BOT BEM ROBUSTO ( QUE AGUENTE MAIS DE 50 PARTIDAS AO MSM TEMPO SEM O BOT CRACHAR ) 
+
+Requisitos Técnicos
+Use discord.js v14.
+Armazenamento de dados persistente (banco de dados).
+Tratamento de erros (não crashar se o usuário tiver DM fechada ou input errado).
+Código limpo e comentado em português.
+Por favor, forneça o código principal (index.js), os handlers de comandos e eventos, e a estrutura de pastas sugerida.
