@@ -77,3 +77,5 @@ O bot utiliza SQLite (better-sqlite3) com as seguintes tabelas:
 - Sistema de filas com matchmaking automático
 - Sistema de pagamento PIX com QR Code
 - Sistema de ranking e tickets
+- **Melhoria de navegação**: Adicionados botões de "Voltar" em todo o bot (/visual e /config)
+- **Interface mais limpa**: Menus agora editam a mesma mensagem ao invés de criar novas (usando update())
