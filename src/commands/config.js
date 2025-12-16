@@ -25,12 +25,8 @@ module.exports = {
                 { name: '💰 VALORES', value: 'Gerenciar valores de apostas', inline: true },
                 { name: '👥 CARGOS', value: 'Definir cargos do sistema', inline: true },
                 { name: '📋 LOGS', value: 'Configurar canais de log', inline: true },
-                { name: '⚔️ MEDIADOR', value: 'Configurar painel do mediador', inline: true },
-                { name: '🎮 EMBEDS', value: 'Personalizar embeds de partida', inline: true },
-                { name: '🎫 TICKET', value: 'Sistema de tickets', inline: true },
-                { name: '🏆 RANKING', value: 'Sistema de ranking', inline: true }
             )
-            .setFooter({ text: 'Sistema de Partidas FF' })
+            .setFooter({ text: 'Bot Xenon' })
             .setTimestamp();
 
         // Criar menu de seleção (substitui os botões de configuração)

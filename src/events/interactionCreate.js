@@ -58,6 +58,108 @@ async function handleButton(interaction, client) {
     const guildId = interaction.guild.id;
     const userId = interaction.user.id;
 
+    // ========== BOTÕES DE VOLTAR (VISUAL EDITOR) ==========
+    
+    if (customId === 'visual_back_main') {
+        const { ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
+        const menu = new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+                .setCustomId('visual_main')
+                .setPlaceholder('Escolha o que quer editar')
+                .addOptions([
+                    { label: 'Embeds', value: 'embeds', description: 'Editar as embeds (partida, mediador, ticket, ranking)' },
+                    { label: 'Botões', value: 'botoes', description: 'Editar botões (por embed/fila, mediador, ranking)' }
+                ])
+        );
+        await interaction.update({ embeds: [embedInfo('Visual Editor', 'Selecione se quer editar Embeds ou Botões.')], components: [menu] });
+        return;
+    }
+
+    if (customId === 'visual_back_embeds') {
+        const { ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+        const menu = new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder().setCustomId('visual_embeds_target').setPlaceholder('Escolha a embed').addOptions([
+                { label: 'Partida', value: 'partida', description: 'Editar embed de partidas' },
+                { label: 'Mediador', value: 'mediador', description: 'Editar painel do mediador' },
+                { label: 'Ticket', value: 'ticket', description: 'Editar embed de tickets' },
+                { label: 'Ranking', value: 'ranking', description: 'Editar embed de ranking' }
+            ])
+        );
+        const backRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('visual_back_main').setLabel('Voltar').setStyle(ButtonStyle.Secondary).setEmoji('◀️')
+        );
+        await interaction.update({ embeds: [embedInfo('Visual Editor - Embeds', 'Escolha qual embed deseja editar.')], components: [menu, backRow] });
+        return;
+    }
+
+    if (customId === 'visual_back_buttons') {
+        const { ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+        const menu = new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder().setCustomId('visual_buttons_target').setPlaceholder('Escolha o tipo de botões').addOptions([
+                { label: 'Partida (Filas)', value: 'partida', description: 'Editar botões das filas (selecione a fila em seguida)' },
+                { label: 'Mediador', value: 'mediador', description: 'Editar botões do painel do mediador' },
+                { label: 'Ranking', value: 'ranking', description: 'Editar botões do ranking' }
+            ])
+        );
+        const backRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('visual_back_main').setLabel('Voltar').setStyle(ButtonStyle.Secondary).setEmoji('◀️')
+        );
+        await interaction.update({ embeds: [embedInfo('Visual Editor - Botões', 'Escolha qual tipo de botões deseja editar.')], components: [menu, backRow] });
+        return;
+    }
+
+    if (customId === 'visual_back_buttons_partida') {
+        const filas = db.getFilasByGuild(guildId);
+        if (!filas || filas.length === 0) {
+            return interaction.reply({ embeds: [embedErro('Nenhuma Fila', 'Nenhuma fila configurada neste servidor.')], ephemeral: true });
+        }
+
+        const { ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+        let options = filas.map(f => ({ label: `${f.modalidade} ${f.tipo} - R$${f.preco}`, value: `fila:${f.id}`, description: `Canal de fila` }));
+        if (options.length > 25) {
+            options = options.slice(0, 25);
+        }
+        const menu = new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder().setCustomId('visual_select_fila').setPlaceholder('Escolha a fila para editar os botões').addOptions(options)
+        );
+        const backRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('visual_back_buttons').setLabel('Voltar').setStyle(ButtonStyle.Secondary).setEmoji('◀️')
+        );
+        await interaction.update({ embeds: [embedInfo('Selecionar Fila', 'Escolha a fila que deseja editar os botões.')], components: [menu, backRow] });
+        return;
+    }
+
+    // ========== BOTÕES DE VOLTAR (CONFIG) ==========
+    
+    if (customId === 'config_back_main') {
+        const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
+        const embed = new EmbedBuilder()
+            .setColor(0x5865F2)
+            .setTitle('⚙️ Painel de Configuração')
+            .setDescription('Selecione uma opção abaixo para configurar o bot.')
+            .addFields(
+                { name: '💰 VALORES', value: 'Gerenciar valores de apostas', inline: true },
+                { name: '👥 CARGOS', value: 'Definir cargos do sistema', inline: true },
+                { name: '📋 LOGS', value: 'Configurar canais de log', inline: true },
+            )
+            .setFooter({ text: 'Bot Xenon' })
+            .setTimestamp();
+
+        const menu = new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+                .setCustomId('config_menu')
+                .setPlaceholder('Selecione uma opção de configuração')
+                .addOptions([
+                    { label: 'VALORES', value: 'valores', description: 'Gerenciar valores de apostas', emoji: '💰' },
+                    { label: 'CARGOS', value: 'cargos', description: 'Definir cargos do sistema', emoji: '👥' },
+                    { label: 'LOGS', value: 'logs', description: 'Configurar canais de log', emoji: '📋' }
+                ])
+        );
+
+        await interaction.update({ embeds: [embed], components: [menu] });
+        return;
+    }
+
     // ========== BOTÕES DO CONFIG ==========
     
     // Botão Valores
@@ -720,9 +822,12 @@ async function handleSelectMenu(interaction, client) {
                 new ButtonBuilder().setCustomId('valor_remover').setLabel('Remover').setStyle(ButtonStyle.Danger),
                 new ButtonBuilder().setCustomId('valor_limpar').setLabel('Limpar Todos').setStyle(ButtonStyle.Secondary)
             );
+            const backRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('config_back_main').setLabel('Voltar').setStyle(ButtonStyle.Secondary).setEmoji('◀️')
+            );
 
             const valores = db.getValores(guildId);
-            return interaction.reply({ embeds: [embedInfo('Gerenciar Valores', `**Valores atuais:** ${valores.length > 0 ? valores.map(v => `R$ ${v}`).join(', ') : 'Nenhum'}\n\nEscolha uma ação:`)], components: [row], ephemeral: true });
+            return interaction.update({ embeds: [embedInfo('Gerenciar Valores', `**Valores atuais:** ${valores.length > 0 ? valores.map(v => `R$ ${v}`).join(', ') : 'Nenhum'}\n\nEscolha uma ação:`)], components: [row, backRow] });
         }
 
         if (escolha === 'cargos') {
@@ -733,9 +838,12 @@ async function handleSelectMenu(interaction, client) {
                 new ButtonBuilder().setCustomId('cargo_suporte').setLabel('Suporte').setStyle(ButtonStyle.Primary),
                 new ButtonBuilder().setCustomId('cargo_blacklist').setLabel('Blacklist').setStyle(ButtonStyle.Danger)
             );
+            const backRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('config_back_main').setLabel('Voltar').setStyle(ButtonStyle.Secondary).setEmoji('◀️')
+            );
 
             const config = db.getConfig(guildId);
-            return interaction.reply({ embeds: [embedInfo('Gerenciar Cargos', `**Analista:** ${config.cargo_analista ? `<@&${config.cargo_analista}>` : 'Não definido'}\n**Mediador:** ${config.cargo_mediador ? `<@&${config.cargo_mediador}>` : 'Não definido'}\n**Suporte:** ${config.cargo_suporte ? `<@&${config.cargo_suporte}>` : 'Não definido'}\n**Blacklist:** ${config.cargo_blacklist ? `<@&${config.cargo_blacklist}>` : 'Não definido'}`)], components: [row], ephemeral: true });
+            return interaction.update({ embeds: [embedInfo('Gerenciar Cargos', `**Analista:** ${config.cargo_analista ? `<@&${config.cargo_analista}>` : 'Não definido'}\n**Mediador:** ${config.cargo_mediador ? `<@&${config.cargo_mediador}>` : 'Não definido'}\n**Suporte:** ${config.cargo_suporte ? `<@&${config.cargo_suporte}>` : 'Não definido'}\n**Blacklist:** ${config.cargo_blacklist ? `<@&${config.cargo_blacklist}>` : 'Não definido'}`)], components: [row, backRow] });
         }
 
         if (escolha === 'logs') {
@@ -745,9 +853,12 @@ async function handleSelectMenu(interaction, client) {
                 new ButtonBuilder().setCustomId('log_partidas').setLabel('Log Partidas').setStyle(ButtonStyle.Primary),
                 new ButtonBuilder().setCustomId('log_mediador').setLabel('Log Mediador').setStyle(ButtonStyle.Primary)
             );
+            const backRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('config_back_main').setLabel('Voltar').setStyle(ButtonStyle.Secondary).setEmoji('◀️')
+            );
 
             const config = db.getConfig(guildId);
-            return interaction.reply({ embeds: [embedInfo('Gerenciar Logs', `**Geral:** ${config.log_geral ? `<#${config.log_geral}>` : 'Não definido'}\n**Partidas:** ${config.log_partidas ? `<#${config.log_partidas}>` : 'Não definido'}\n**Mediador:** ${config.log_mediador ? `<#${config.log_mediador}>` : 'Não definido'}`)], components: [row], ephemeral: true });
+            return interaction.update({ embeds: [embedInfo('Gerenciar Logs', `**Geral:** ${config.log_geral ? `<#${config.log_geral}>` : 'Não definido'}\n**Partidas:** ${config.log_partidas ? `<#${config.log_partidas}>` : 'Não definido'}\n**Mediador:** ${config.log_mediador ? `<#${config.log_mediador}>` : 'Não definido'}`)], components: [row, backRow] });
         }
 
         return interaction.reply({ embeds: [embedErro('Erro', 'Opção inválida.')], ephemeral: true });
@@ -775,7 +886,7 @@ async function handleSelectMenu(interaction, client) {
     // Step 1: chose Embeds or Buttons
     if (customId === 'visual_main') {
         if (selected === 'embeds') {
-            const { ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
+            const { ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
             const menu = new ActionRowBuilder().addComponents(
                 new StringSelectMenuBuilder().setCustomId('visual_embeds_target').setPlaceholder('Escolha a embed').addOptions([
                     { label: 'Partida', value: 'partida', description: 'Editar embed de partidas' },
@@ -784,12 +895,15 @@ async function handleSelectMenu(interaction, client) {
                     { label: 'Ranking', value: 'ranking', description: 'Editar embed de ranking' }
                 ])
             );
-            await interaction.reply({ embeds: [embedInfo('Visual Editor - Embeds', 'Escolha qual embed deseja editar.')], components: [menu], ephemeral: true });
+            const backRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('visual_back_main').setLabel('Voltar').setStyle(ButtonStyle.Secondary).setEmoji('◀️')
+            );
+            await interaction.update({ embeds: [embedInfo('Visual Editor - Embeds', 'Escolha qual embed deseja editar.')], components: [menu, backRow] });
             return;
         }
 
         if (selected === 'botoes' || selected === 'buttons') {
-            const { ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
+            const { ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
             const menu = new ActionRowBuilder().addComponents(
                 new StringSelectMenuBuilder().setCustomId('visual_buttons_target').setPlaceholder('Escolha o tipo de botões').addOptions([
                     { label: 'Partida (Filas)', value: 'partida', description: 'Editar botões das filas (selecione a fila em seguida)' },
@@ -797,21 +911,78 @@ async function handleSelectMenu(interaction, client) {
                     { label: 'Ranking', value: 'ranking', description: 'Editar botões do ranking' }
                 ])
             );
-            await interaction.reply({ embeds: [embedInfo('Visual Editor - Botões', 'Escolha qual tipo de botões deseja editar.')], components: [menu], ephemeral: true });
+            const backRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('visual_back_main').setLabel('Voltar').setStyle(ButtonStyle.Secondary).setEmoji('◀️')
+            );
+            await interaction.update({ embeds: [embedInfo('Visual Editor - Botões', 'Escolha qual tipo de botões deseja editar.')], components: [menu, backRow] });
             return;
         }
     }
 
-    // Step 2: For buttons -> choose specific target (e.g., partida -> choose fila)
+    // Step 2a: For embeds -> show edit options
+    if (customId === 'visual_embeds_target') {
+        const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+        
+        if (selected === 'partida') {
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('partida_editar').setLabel('Editar Embed').setStyle(ButtonStyle.Primary),
+                new ButtonBuilder().setCustomId('partida_preview').setLabel('Preview').setStyle(ButtonStyle.Secondary)
+            );
+            const backRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('visual_back_embeds').setLabel('Voltar').setStyle(ButtonStyle.Secondary).setEmoji('◀️')
+            );
+            await interaction.update({ embeds: [embedInfo('Embed de Partidas', 'Configure a embed das filas de partida.\n\n**Variáveis disponíveis:**\n`{{MODALIDADE}}` - Mobile, Emulador, etc\n`{{TIPO}}` - 1v1, 2v2, etc\n`{{PREÇO}}` - Valor da aposta')], components: [row, backRow] });
+            return;
+        }
+        
+        if (selected === 'mediador') {
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('mediador_editar').setLabel('Editar Embed').setStyle(ButtonStyle.Primary),
+                new ButtonBuilder().setCustomId('mediador_preview').setLabel('Preview').setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder().setCustomId('mediador_postar').setLabel('Postar').setStyle(ButtonStyle.Success)
+            );
+            const backRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('visual_back_embeds').setLabel('Voltar').setStyle(ButtonStyle.Secondary).setEmoji('◀️')
+            );
+            await interaction.update({ embeds: [embedInfo('Painel do Mediador', 'Configure a embed do painel de mediador.')], components: [row, backRow] });
+            return;
+        }
+        
+        if (selected === 'ticket') {
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('ticket_editar').setLabel('Editar Embed').setStyle(ButtonStyle.Primary),
+                new ButtonBuilder().setCustomId('ticket_categoria').setLabel('Definir Categoria').setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder().setCustomId('ticket_postar').setLabel('Postar').setStyle(ButtonStyle.Success)
+            );
+            const backRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('visual_back_embeds').setLabel('Voltar').setStyle(ButtonStyle.Secondary).setEmoji('◀️')
+            );
+            await interaction.update({ embeds: [embedInfo('Sistema de Tickets', 'Configure o sistema de tickets.')], components: [row, backRow] });
+            return;
+        }
+        
+        if (selected === 'ranking') {
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('ranking_editar').setLabel('Editar Embed').setStyle(ButtonStyle.Primary),
+                new ButtonBuilder().setCustomId('ranking_postar').setLabel('Postar').setStyle(ButtonStyle.Success)
+            );
+            const backRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('visual_back_embeds').setLabel('Voltar').setStyle(ButtonStyle.Secondary).setEmoji('◀️')
+            );
+            await interaction.update({ embeds: [embedInfo('Sistema de Ranking', 'Configure o sistema de ranking.')], components: [row, backRow] });
+            return;
+        }
+    }
+
+    // Step 2b: For buttons -> choose specific target (e.g., partida -> choose fila)
     if (customId === 'visual_buttons_target' && selected === 'partida') {
         const filas = db.getFilasByGuild(guildId);
         if (!filas || filas.length === 0) {
             return interaction.reply({ embeds: [embedErro('Nenhuma Fila', 'Nenhuma fila configurada neste servidor.')], ephemeral: true });
         }
 
-        const { ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
-        // Build options but cap at Discord limit of 25 options
-        let options = filas.map(f => ({ label: `${f.modalidade} ${f.tipo} - R$${f.preco}`, value: `fila:${f.id}`, description: `<#${f.canal_id}>` }));
+        const { ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+        let options = filas.map(f => ({ label: `${f.modalidade} ${f.tipo} - R$${f.preco}`, value: `fila:${f.id}`, description: `Canal de fila` }));
         if (options.length > 25) {
             const moreCount = options.length - 25;
             options = options.slice(0, 25);
@@ -820,7 +991,10 @@ async function handleSelectMenu(interaction, client) {
         const menu = new ActionRowBuilder().addComponents(
             new StringSelectMenuBuilder().setCustomId('visual_select_fila').setPlaceholder('Escolha a fila para editar os botões').addOptions(options)
         );
-        await interaction.reply({ embeds: [embedInfo('Selecionar Fila', 'Escolha a fila que deseja editar os botões.')], components: [menu], ephemeral: true });
+        const backRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('visual_back_buttons').setLabel('Voltar').setStyle(ButtonStyle.Secondary).setEmoji('◀️')
+        );
+        await interaction.update({ embeds: [embedInfo('Selecionar Fila', 'Escolha a fila que deseja editar os botões.')], components: [menu, backRow] });
         return; 
     }
 
@@ -838,32 +1012,31 @@ async function handleSelectMenu(interaction, client) {
         let botoes = [];
         try { botoes = JSON.parse(fila.botoes || '[]'); } catch (e) { botoes = []; }
 
-        const { ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
+        const { ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
         const menu = new ActionRowBuilder();
         let options = [];
 
-        // Add options for existing buttons (reserve room for 'add' and 'remove' actions)
         for (let i = 0; i < botoes.length; i++) {
             const b = botoes[i];
             options.push({ label: b.label || `Botão ${i + 1}`, value: `fila_btn:${fila.id}:${i}`, description: `${(b.style || 'PRIMARY').toLowerCase()}` });
         }
 
-        // If too many buttons, truncate and add a 'more' indicator
         const maxOptions = 25;
-        const reserved = 2; // for add/remove actions
+        const reserved = 2;
         if (options.length > maxOptions - reserved) {
             const moreCount = options.length - (maxOptions - reserved);
             options = options.slice(0, maxOptions - reserved);
             options.push({ label: `... e mais ${moreCount} botões`, value: 'visual_btns_more', description: 'Remova alguns botões para ver todos' });
         }
 
-        // Option to add a new button
         options.push({ label: '➕ Adicionar novo botão', value: `fila_add:${fila.id}`, description: 'Adicionar um botão nesta fila' });
-        // Option to remover todos
         options.push({ label: '🗑️ Remover todos os botões', value: `fila_remove_all:${fila.id}`, description: 'Remover todos os botões desta fila' });
 
         menu.addComponents(new StringSelectMenuBuilder().setCustomId('visual_select_fila_button').setPlaceholder('Escolha uma ação').addOptions(options));
-        await interaction.reply({ embeds: [embedInfo('Editar Botões - Fila', `Fila selecionada: **${fila.modalidade} ${fila.tipo} - R$${fila.preco}**`)], components: [menu], ephemeral: true });
+        const backRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('visual_back_buttons_partida').setLabel('Voltar').setStyle(ButtonStyle.Secondary).setEmoji('◀️')
+        );
+        await interaction.update({ embeds: [embedInfo('Editar Botões - Fila', `Fila selecionada: **${fila.modalidade} ${fila.tipo} - R$${fila.preco}**`)], components: [menu, backRow] });
         return;
     }
 
