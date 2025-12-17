@@ -107,28 +107,6 @@ async function handleButton(interaction, client) {
         await interaction.update({ embeds: [embedInfo('Visual Editor - Botões', 'Escolha qual tipo de botões deseja editar.')], components: [menu, backRow] });
         return;
     }
-
-    if (customId === 'visual_back_buttons_partida') {
-        const filas = db.getFilasByGuild(guildId);
-        if (!filas || filas.length === 0) {
-            return interaction.reply({ embeds: [embedErro('Nenhuma Fila', 'Nenhuma fila configurada neste servidor.')], ephemeral: true });
-        }
-
-        const { ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-        let options = filas.map(f => ({ label: `${f.modalidade} ${f.tipo} - R$${f.preco}`, value: `fila:${f.id}`, description: `Canal de fila` }));
-        if (options.length > 25) {
-            options = options.slice(0, 25);
-        }
-        const menu = new ActionRowBuilder().addComponents(
-            new StringSelectMenuBuilder().setCustomId('visual_select_fila').setPlaceholder('Escolha a fila para editar os botões').addOptions(options)
-        );
-        const backRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('visual_back_buttons').setLabel('Voltar').setStyle(ButtonStyle.Secondary).setEmoji('◀️')
-        );
-        await interaction.update({ embeds: [embedInfo('Selecionar Fila', 'Escolha a fila que deseja editar os botões.')], components: [menu, backRow] });
-        return;
-    }
-
     // ========== BOTÕES DE VOLTAR (CONFIG) ==========
     
     if (customId === 'config_back_main') {
@@ -368,58 +346,6 @@ async function handleButton(interaction, client) {
 
         modal.addComponents(new ActionRowBuilder().addComponents(input));
         await interaction.showModal(modal);
-        return;
-    }
-
-    // Visual editor quick actions for fila buttons (edit/remove)
-    if (customId.startsWith('visual_button_edit_')) {
-        const parts = customId.split('_');
-        // customId format: visual_button_edit_<filaId>_<index>
-        const filaId = parts[3];
-        const index = parseInt(parts[4], 10);
-        const fila = db.getFila(filaId);
-        if (!fila) return interaction.reply({ embeds: [embedErro('Erro', 'Fila não encontrada.')], ephemeral: true });
-
-        let botoes = [];
-        try { botoes = JSON.parse(fila.botoes || '[]'); } catch (e) { botoes = []; }
-        const btn = botoes[index] || {};
-
-        const modal = new ModalBuilder().setCustomId(`modal_visual_edit_button_${filaId}_${index}`).setTitle('Editar Botão - Fila');
-        const labelInput = new TextInputBuilder().setCustomId('label').setLabel('Label do botão').setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder(btn.label || 'Texto do botão');
-        const styleInput = new TextInputBuilder().setCustomId('style').setLabel('Estilo (primary, secondary, success, danger)').setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder((btn.style || 'primary'));
-
-        modal.addComponents(new ActionRowBuilder().addComponents(labelInput), new ActionRowBuilder().addComponents(styleInput));
-        await interaction.showModal(modal);
-        return;
-    }
-
-    if (customId.startsWith('visual_button_remove_')) {
-        const parts = customId.split('_');
-        const filaId = parts[3];
-        const index = parseInt(parts[4], 10);
-        const fila = db.getFila(filaId);
-        if (!fila) return interaction.reply({ embeds: [embedErro('Erro', 'Fila não encontrada.')], ephemeral: true });
-
-        let botoes = [];
-        try { botoes = JSON.parse(fila.botoes || '[]'); } catch (e) { botoes = []; }
-        if (index < 0 || index >= botoes.length) return interaction.reply({ embeds: [embedErro('Erro', 'Botão não encontrado.')], ephemeral: true });
-
-        botoes.splice(index, 1);
-        db.updateFila(fila.id, 'botoes', JSON.stringify(botoes));
-
-        // Try to update posted message
-        try {
-            const canal = interaction.guild.channels.cache.get(fila.canal_id);
-            const msg = canal ? await canal.messages.fetch(fila.message_id).catch(() => null) : null;
-            if (msg) {
-                const config = db.getConfig(guildId);
-                const embedMsg = embedPartida(config, fila.modalidade, fila.tipo, fila.preco, JSON.parse(fila.jogadores || '[]'));
-                const buttons = getFilaButtons(guildId, fila.modalidade, fila.tipo, fila.canal_id, fila.preco);
-                await msg.edit({ embeds: [embedMsg], components: buttons }).catch(() => {});
-            }
-        } catch (e) {}
-
-        await interaction.reply({ embeds: [embedSucesso('Botão Removido', 'O botão foi removido com sucesso.')], ephemeral: true });
         return;
     }
 
@@ -901,22 +827,6 @@ async function handleSelectMenu(interaction, client) {
             await interaction.update({ embeds: [embedInfo('Visual Editor - Embeds', 'Escolha qual embed deseja editar.')], components: [menu, backRow] });
             return;
         }
-
-        if (selected === 'botoes' || selected === 'buttons') {
-            const { ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-            const menu = new ActionRowBuilder().addComponents(
-                new StringSelectMenuBuilder().setCustomId('visual_buttons_target').setPlaceholder('Escolha o tipo de botões').addOptions([
-                    { label: 'Partida (Filas)', value: 'partida', description: 'Editar botões das filas (selecione a fila em seguida)' },
-                    { label: 'Mediador', value: 'mediador', description: 'Editar botões do painel do mediador' },
-                    { label: 'Ranking', value: 'ranking', description: 'Editar botões do ranking' }
-                ])
-            );
-            const backRow = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('visual_back_main').setLabel('Voltar').setStyle(ButtonStyle.Secondary).setEmoji('◀️')
-            );
-            await interaction.update({ embeds: [embedInfo('Visual Editor - Botões', 'Escolha qual tipo de botões deseja editar.')], components: [menu, backRow] });
-            return;
-        }
     }
 
     // Step 2a: For embeds -> show edit options
@@ -973,140 +883,123 @@ async function handleSelectMenu(interaction, client) {
             return;
         }
     }
-
-    // Step 2b: For buttons -> choose specific target (e.g., partida -> choose fila)
-    if (customId === 'visual_buttons_target' && selected === 'partida') {
-        const filas = db.getFilasByGuild(guildId);
-        if (!filas || filas.length === 0) {
-            return interaction.reply({ embeds: [embedErro('Nenhuma Fila', 'Nenhuma fila configurada neste servidor.')], ephemeral: true });
-        }
-
-        const { ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-        let options = filas.map(f => ({ label: `${f.modalidade} ${f.tipo} - R$${f.preco}`, value: `fila:${f.id}`, description: `Canal de fila` }));
-        if (options.length > 25) {
-            const moreCount = options.length - 25;
-            options = options.slice(0, 25);
-            options.push({ label: `... e mais ${moreCount} filas`, value: 'visual_filas_more', description: 'Existem muitas filas - use /config para filtrar' });
-        }
-        const menu = new ActionRowBuilder().addComponents(
-            new StringSelectMenuBuilder().setCustomId('visual_select_fila').setPlaceholder('Escolha a fila para editar os botões').addOptions(options)
-        );
-        const backRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('visual_back_buttons').setLabel('Voltar').setStyle(ButtonStyle.Secondary).setEmoji('◀️')
-        );
-        await interaction.update({ embeds: [embedInfo('Selecionar Fila', 'Escolha a fila que deseja editar os botões.')], components: [menu, backRow] });
-        return; 
-    }
-
-    // Step 3: After selecting a fila, show its buttons and options to add/edit/remove
-    if (customId === 'visual_select_fila') {
-        const value = selected; // e.g., 'fila:12'
-        if (value === 'visual_filas_more') {
-            return interaction.reply({ embeds: [embedErro('Limite de opções', 'Existem muitas filas para mostrar. Use o painel de configuração para filtrar ou remover filas antigas.')], ephemeral: true });
-        }
-        if (!value.startsWith('fila:')) return interaction.reply({ embeds: [embedErro('Erro', 'Valor inválido.')], ephemeral: true });
-        const filaId = value.split(':')[1];
-        const fila = db.getFila(filaId);
-        if (!fila) return interaction.reply({ embeds: [embedErro('Erro', 'Fila não encontrada.')], ephemeral: true });
-
-        let botoes = [];
-        try { botoes = JSON.parse(fila.botoes || '[]'); } catch (e) { botoes = []; }
-
-        const { ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-        const menu = new ActionRowBuilder();
-        let options = [];
-
-        for (let i = 0; i < botoes.length; i++) {
-            const b = botoes[i];
-            options.push({ label: b.label || `Botão ${i + 1}`, value: `fila_btn:${fila.id}:${i}`, description: `${(b.style || 'PRIMARY').toLowerCase()}` });
-        }
-
-        const maxOptions = 25;
-        const reserved = 2;
-        if (options.length > maxOptions - reserved) {
-            const moreCount = options.length - (maxOptions - reserved);
-            options = options.slice(0, maxOptions - reserved);
-            options.push({ label: `... e mais ${moreCount} botões`, value: 'visual_btns_more', description: 'Remova alguns botões para ver todos' });
-        }
-
-        options.push({ label: '➕ Adicionar novo botão', value: `fila_add:${fila.id}`, description: 'Adicionar um botão nesta fila' });
-        options.push({ label: '🗑️ Remover todos os botões', value: `fila_remove_all:${fila.id}`, description: 'Remover todos os botões desta fila' });
-
-        menu.addComponents(new StringSelectMenuBuilder().setCustomId('visual_select_fila_button').setPlaceholder('Escolha uma ação').addOptions(options));
-        const backRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('visual_back_buttons_partida').setLabel('Voltar').setStyle(ButtonStyle.Secondary).setEmoji('◀️')
-        );
-        await interaction.update({ embeds: [embedInfo('Editar Botões - Fila', `Fila selecionada: **${fila.modalidade} ${fila.tipo} - R$${fila.preco}**`)], components: [menu, backRow] });
-        return;
-    }
-
-    // Step 4: Handle actions on fila buttons
-    if (customId === 'visual_select_fila_button') {
-        const value = selected; // e.g., 'fila_btn:12:0' or 'fila_add:12'
-        if (value === 'visual_btns_more') {
-            return interaction.reply({ embeds: [embedErro('Limite de opções', 'Existem muitos botões nesta fila para mostrar. Remova alguns para continuar.')], ephemeral: true });
-        }
-        if (value.startsWith('fila_add:')) {
-            const filaId = value.split(':')[1];
-            const modal = new ModalBuilder().setCustomId(`modal_visual_add_button_${filaId}`).setTitle('Adicionar Botão - Fila');
-            const labelInput = new TextInputBuilder().setCustomId('label').setLabel('Label do botão').setStyle(TextInputStyle.Short).setRequired(true);
-            const styleInput = new TextInputBuilder().setCustomId('style').setLabel('Estilo (primary, secondary, success, danger)').setStyle(TextInputStyle.Short).setRequired(true);
-            modal.addComponents(new ActionRowBuilder().addComponents(labelInput), new ActionRowBuilder().addComponents(styleInput));
-            await interaction.showModal(modal);
-            return;
-        }
-
-        if (value.startsWith('fila_btn:')) {
-            const parts = value.split(':');
-            const filaId = parts[1];
-            const index = parseInt(parts[2], 10);
-            const fila = db.getFila(filaId);
-            if (!fila) return interaction.reply({ embeds: [embedErro('Erro', 'Fila não encontrada.')], ephemeral: true });
-
-            let botoes = [];
-            try { botoes = JSON.parse(fila.botoes || '[]'); } catch (e) { botoes = []; }
-            const btn = botoes[index];
-
-            // Show quick action buttons: Edit or Remove
-            const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-            const row = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`visual_button_edit_${fila.id}_${index}`).setLabel('Editar').setStyle(ButtonStyle.Primary),
-                new ButtonBuilder().setCustomId(`visual_button_remove_${fila.id}_${index}`).setLabel('Remover').setStyle(ButtonStyle.Danger)
-            );
-
-            await interaction.reply({ embeds: [embedInfo('Ação de Botão', `Botão: **${btn ? btn.label : `Botão ${index + 1}`}**
-Escolha Editar para alterar label/estilo, ou Remover para deletar este botão.`)], components: [row], ephemeral: true });
-            return;
-        }
-
-        if (value.startsWith('fila_remove_all:')) {
-            const filaId = value.split(':')[1];
-            const fila = db.getFila(filaId);
-            if (!fila) return interaction.reply({ embeds: [embedErro('Erro', 'Fila não encontrada.')], ephemeral: true });
-            db.updateFila(fila.id, 'botoes', JSON.stringify([]));
-
-            // Try to update posted message
-            try {
-                const canal = interaction.guild.channels.cache.get(fila.canal_id);
-                const msg = canal ? await canal.messages.fetch(fila.message_id).catch(() => null) : null;
-                if (msg) {
-                    const config = db.getConfig(guildId);
-                    const embedMsg = embedPartida(config, fila.modalidade, fila.tipo, fila.preco, JSON.parse(fila.jogadores || '[]'));
-                    const buttons = getFilaButtons(guildId, fila.modalidade, fila.tipo, fila.canal_id, fila.preco);
-                    await msg.edit({ embeds: [embedMsg], components: buttons }).catch(() => {});
-                }
-            } catch (e) {}
-
-            await interaction.reply({ embeds: [embedSucesso('Botões Removidos', 'Todos os botões desta fila foram removidos.')], ephemeral: true });
-            return;
-        }
-    }
 }
 
 // Handler de Modais
 async function handleModal(interaction, client) {
     const customId = interaction.customId;
     const guildId = interaction.guild.id;
+
+    // Modal de configurar filas
+    if (customId === 'modal_configurar_filas') {
+        await interaction.deferReply({ ephemeral: true });
+
+        try {
+            const categoriasMobile = interaction.fields.getTextInputValue('categoria_mobile');
+            const categoriasEmulador = interaction.fields.getTextInputValue('categoria_emulador');
+            const categoriasTatico = interaction.fields.getTextInputValue('categoria_tatico');
+            const categoriasMisto = interaction.fields.getTextInputValue('categoria_misto');
+            const categoriasPartida = interaction.fields.getTextInputValue('categoria_partida');
+
+            // Validar se as categorias existem
+            const cat_mobile = interaction.guild.channels.cache.get(categoriasMobile);
+            const cat_emulador = interaction.guild.channels.cache.get(categoriasEmulador);
+            const cat_tatico = interaction.guild.channels.cache.get(categoriasTatico);
+            const cat_misto = interaction.guild.channels.cache.get(categoriasMisto);
+            const cat_partida = interaction.guild.channels.cache.get(categoriasPartida);
+
+            if (!cat_mobile || cat_mobile.type !== ChannelType.GuildCategory) {
+                return interaction.editReply({ embeds: [embedErro('Erro', 'Categoria Mobile não encontrada ou inválida.')] });
+            }
+            if (!cat_emulador || cat_emulador.type !== ChannelType.GuildCategory) {
+                return interaction.editReply({ embeds: [embedErro('Erro', 'Categoria Emulador não encontrada ou inválida.')] });
+            }
+            if (!cat_tatico || cat_tatico.type !== ChannelType.GuildCategory) {
+                return interaction.editReply({ embeds: [embedErro('Erro', 'Categoria Tático não encontrada ou inválida.')] });
+            }
+            if (!cat_misto || cat_misto.type !== ChannelType.GuildCategory) {
+                return interaction.editReply({ embeds: [embedErro('Erro', 'Categoria Misto não encontrada ou inválida.')] });
+            }
+            if (!cat_partida || cat_partida.type !== ChannelType.GuildCategory) {
+                return interaction.editReply({ embeds: [embedErro('Erro', 'Categoria de Partida não encontrada ou inválida.')] });
+            }
+
+            // Salvar as categorias na config do servidor
+            db.updateConfig(guildId, 'categoria_filas_mobile', categoriasMobile);
+            db.updateConfig(guildId, 'categoria_filas_emulador', categoriasEmulador);
+            db.updateConfig(guildId, 'categoria_filas_tatico', categoriasTatico);
+            db.updateConfig(guildId, 'categoria_filas_misto', categoriasMisto);
+            db.updateConfig(guildId, 'categoria_partida', categoriasPartida);
+
+            // Agora criar automaticamente as filas nos canais das categorias configuradas
+            const modalidades = [
+                { name: 'Mobile', catId: categoriasMobile },
+                { name: 'Emulador', catId: categoriasEmulador },
+                { name: 'Tático', catId: categoriasTatico },
+                { name: 'Misto', catId: categoriasMisto }
+            ];
+
+            const tipos = ['1v1', '2v2', '3v3', '4v4'];
+            const valores = db.getValores(guildId);
+            const config = db.getConfig(guildId);
+
+            if (valores.length === 0) {
+                await interaction.editReply({ embeds: [embedSucesso('Categorias Salvas', `✅ Mobile: ${cat_mobile.name}\n✅ Emulador: ${cat_emulador.name}\n✅ Tático: ${cat_tatico.name}\n✅ Misto: ${cat_misto.name}\n✅ Partida: ${cat_partida.name}\n\nCategorias salvas com sucesso, mas não há valores configurados para criar filas.`)] });
+                return;
+            }
+
+            for (const mod of modalidades) {
+                const categoriaIdLocal = mod.catId;
+                const categoriaObj = interaction.guild.channels.cache.get(categoriaIdLocal);
+                if (!categoriaObj || categoriaObj.type !== ChannelType.GuildCategory) continue;
+
+                for (const tipo of tipos) {
+                    const canalNome = `${tipo}-${mod.name.toLowerCase()}`;
+
+                    // pular se canal com mesmo nome já existir na categoria
+                    const existing = interaction.guild.channels.cache.find(c => c.parentId === categoriaIdLocal && c.name === canalNome);
+                    let canal;
+                    if (existing) {
+                        canal = existing;
+                    } else {
+                        canal = await interaction.guild.channels.create({
+                            name: canalNome,
+                            type: ChannelType.GuildText,
+                            parent: categoriaIdLocal
+                        });
+                    }
+
+                    // Para cada valor, postar uma mensagem (embed) separada dentro do mesmo canal
+                    for (const valor of valores) {
+                        // evitar duplicar fila para mesmo canal+preço
+                        const already = db.getFilaByCanalAndPreco(guildId, canal.id, valor);
+                        if (already) continue;
+
+                        const embed = embedPartida(config, mod.name, tipo, valor, []);
+                        const buttons = getFilaButtons(guildId, mod.name, tipo, canal.id, valor);
+
+                        const message = await canal.send({ embeds: [embed], components: buttons });
+
+                        // Salvar fila por mensagem (cada embed representa uma fila com preço específico)
+                        db.createFila(guildId, mod.name, categoriaIdLocal, canal.id, tipo, valor, message.id);
+                    }
+                }
+            }
+
+            await interaction.editReply({ embeds: [embedSucesso('Categorias e Filas Configuradas',
+                `✅ Mobile: ${cat_mobile.name}\n` +
+                `✅ Emulador: ${cat_emulador.name}\n` +
+                `✅ Tático: ${cat_tatico.name}\n` +
+                `✅ Misto: ${cat_misto.name}\n` +
+                `✅ Partida: ${cat_partida.name}\n\n` +
+                'As categorias foram salvas e as filas foram postadas nos canais correspondentes.'
+            )] });
+        } catch (error) {
+            console.error('[ERRO] modal_configurar_filas:', error);
+            await interaction.editReply({ embeds: [embedErro('Erro', 'Ocorreu um erro ao processar as categorias. Verifique os logs.')] });
+        }
+        return;
+    }
 
     // Modal de valor
     if (customId === 'modal_valor_adicionar') {
@@ -1256,71 +1149,7 @@ async function handleModal(interaction, client) {
     }
 
     // ========== MODAIS DO VISUAL EDITOR ==========
-    if (customId.startsWith('modal_visual_add_button_')) {
-        const filaId = customId.replace('modal_visual_add_button_', '');
-        const label = interaction.fields.getTextInputValue('label');
-        const styleRaw = interaction.fields.getTextInputValue('style') || 'primary';
-        const style = styleRaw.toUpperCase();
-        const fila = db.getFila(filaId);
-        if (!fila) return interaction.reply({ embeds: [embedErro('Erro', 'Fila não encontrada.')], ephemeral: true });
-
-        let botoes = [];
-        try { botoes = JSON.parse(fila.botoes || '[]'); } catch (e) { botoes = []; }
-
-        const newCustomId = `fila_btn_${fila.id}_${Date.now()}`;
-        botoes.push({ customId: newCustomId, label, style });
-        db.updateFila(fila.id, 'botoes', JSON.stringify(botoes));
-
-        // Try to update posted message
-        try {
-            const canal = interaction.guild.channels.cache.get(fila.canal_id);
-            const msg = canal ? await canal.messages.fetch(fila.message_id).catch(() => null) : null;
-            if (msg) {
-                const config = db.getConfig(guildId);
-                const embedMsg = embedPartida(config, fila.modalidade, fila.tipo, fila.preco, JSON.parse(fila.jogadores || '[]'));
-                const buttons = getFilaButtons(guildId, fila.modalidade, fila.tipo, fila.canal_id, fila.preco);
-                await msg.edit({ embeds: [embedMsg], components: buttons }).catch(() => {});
-            }
-        } catch (e) {}
-
-        await interaction.reply({ embeds: [embedSucesso('Botão Adicionado', 'O botão foi adicionado com sucesso.')], ephemeral: true });
-        return;
-    }
-
-    if (customId.startsWith('modal_visual_edit_button_')) {
-        const idPart = customId.replace('modal_visual_edit_button_', '');
-        const [filaId, idxStr] = idPart.split('_');
-        const index = parseInt(idxStr, 10);
-        const label = interaction.fields.getTextInputValue('label');
-        const style = (interaction.fields.getTextInputValue('style') || 'primary').toUpperCase();
-
-        const fila = db.getFila(filaId);
-        if (!fila) return interaction.reply({ embeds: [embedErro('Erro', 'Fila não encontrada.')], ephemeral: true });
-
-        let botoes = [];
-        try { botoes = JSON.parse(fila.botoes || '[]'); } catch (e) { botoes = []; }
-        if (index < 0 || index >= botoes.length) return interaction.reply({ embeds: [embedErro('Erro', 'Botão não encontrado.')], ephemeral: true });
-
-        botoes[index].label = label;
-        botoes[index].style = style;
-        db.updateFila(fila.id, 'botoes', JSON.stringify(botoes));
-
-        // Try to update posted message
-        try {
-            const canal = interaction.guild.channels.cache.get(fila.canal_id);
-            const msg = canal ? await canal.messages.fetch(fila.message_id).catch(() => null) : null;
-            if (msg) {
-                const config = db.getConfig(guildId);
-                const embedMsg = embedPartida(config, fila.modalidade, fila.tipo, fila.preco, JSON.parse(fila.jogadores || '[]'));
-                const buttons = getFilaButtons(guildId, fila.modalidade, fila.tipo, fila.canal_id, fila.preco);
-                await msg.edit({ embeds: [embedMsg], components: buttons }).catch(() => {});
-            }
-        } catch (e) {}
-
-        await interaction.reply({ embeds: [embedSucesso('Botão Atualizado', 'O botão foi atualizado com sucesso.')], ephemeral: true });
-        return;
-    }
-
+    
     // Modal de embed ticket
     if (customId === 'modal_embed_ticket') {
         const config = db.getConfig(guildId);
@@ -1563,7 +1392,27 @@ function getFilaButtons(guildId, modalidade, tipo, canalId, preco = null) {
                         DANGER: ButtonStyle.Danger
                     };
                     const style = styleMap[(btn.style || '').toUpperCase()] || ButtonStyle.Primary;
-                    row.addComponents(new ButtonBuilder().setCustomId(btn.customId).setLabel(btn.label || 'Botão').setStyle(style));
+                    const builder = new ButtonBuilder()
+                        .setCustomId(btn.customId)
+                        .setLabel(btn.label || 'Botão')
+                        .setStyle(style);
+                    
+                    // Add optional emoji if provided
+                    if (btn.emoji) {
+                        builder.setEmoji(btn.emoji);
+                    }
+                    
+                    // Set disabled state if provided
+                    if (btn.disabled) {
+                        builder.setDisabled(true);
+                    }
+                    
+                    // Add URL if it's a link style button
+                    if (btn.url && style === ButtonStyle.Link) {
+                        builder.setURL(btn.url);
+                    }
+                    
+                    row.addComponents(builder);
                 }
                 rows.push(row);
             }
@@ -1575,62 +1424,68 @@ function getFilaButtons(guildId, modalidade, tipo, canalId, preco = null) {
     }
 
     // Fallback legacy buttons
+    // Emojis customizados
+    const emojiEntrar = '<:emoji_1765771303585_ghoststudio:1449974680206315580>';
+    const emojiSair = '<:emoji_1765771267314_ghoststudio:1449974527965659188>';
+    const emojiGelo = '<:emoji_1765770629512_ghoststudio:1449971852637241396>';
+    const emojiFullUmp = '<:emoji_1765770677586_ghoststudio:1449974643>';
+
     if (modalidade === 'Mobile') {
         if (tipo === '1v1') {
             rows.push(new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`fila_gelo_infinito_${canalId}_${precoId}`).setLabel('Gelo Infinito').setStyle(ButtonStyle.Primary),
-                new ButtonBuilder().setCustomId(`fila_gelo_normal_${canalId}_${precoId}`).setLabel('Gelo Normal').setStyle(ButtonStyle.Primary),
-                new ButtonBuilder().setCustomId(`fila_sair_${canalId}_${precoId}`).setLabel('Sair').setStyle(ButtonStyle.Danger)
+                new ButtonBuilder().setCustomId(`fila_gelo_infinito_${canalId}_${precoId}`).setLabel('Gelo Infinito').setStyle(ButtonStyle.Primary).setEmoji(emojiGelo),
+                new ButtonBuilder().setCustomId(`fila_gelo_normal_${canalId}_${precoId}`).setLabel('Gelo Normal').setStyle(ButtonStyle.Primary).setEmoji(emojiGelo),
+                new ButtonBuilder().setCustomId(`fila_sair_${canalId}_${precoId}`).setLabel('Sair').setStyle(ButtonStyle.Danger).setEmoji(emojiSair)
             ));
         } else {
             rows.push(new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`fila_entrar_${canalId}_${precoId}`).setLabel('Entrar').setStyle(ButtonStyle.Success),
-                new ButtonBuilder().setCustomId(`fila_full_ump_${canalId}_${precoId}`).setLabel('Full UMP XM8').setStyle(ButtonStyle.Primary),
-                new ButtonBuilder().setCustomId(`fila_sair_${canalId}_${precoId}`).setLabel('Sair').setStyle(ButtonStyle.Danger)
+                new ButtonBuilder().setCustomId(`fila_entrar_${canalId}_${precoId}`).setLabel('Entrar').setStyle(ButtonStyle.Success).setEmoji(emojiEntrar),
+                new ButtonBuilder().setCustomId(`fila_full_ump_${canalId}_${precoId}`).setLabel('Full UMP XM8').setStyle(ButtonStyle.Primary).setEmoji(emojiFullUmp),
+                new ButtonBuilder().setCustomId(`fila_sair_${canalId}_${precoId}`).setLabel('Sair').setStyle(ButtonStyle.Danger).setEmoji(emojiSair)
             ));
         }
     } else if (modalidade === 'Emulador') {
         if (tipo === '1v1') {
             rows.push(new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`fila_gelo_infinito_${canalId}_${precoId}`).setLabel('Gelo Infinito').setStyle(ButtonStyle.Primary),
-                new ButtonBuilder().setCustomId(`fila_gelo_normal_${canalId}_${precoId}`).setLabel('Gelo Normal').setStyle(ButtonStyle.Primary),
-                new ButtonBuilder().setCustomId(`fila_sair_${canalId}_${precoId}`).setLabel('Sair').setStyle(ButtonStyle.Danger)
+                new ButtonBuilder().setCustomId(`fila_gelo_infinito_${canalId}_${precoId}`).setLabel('Gelo Infinito').setStyle(ButtonStyle.Primary).setEmoji(emojiGelo),
+                new ButtonBuilder().setCustomId(`fila_gelo_normal_${canalId}_${precoId}`).setLabel('Gelo Normal').setStyle(ButtonStyle.Primary).setEmoji(emojiGelo),
+                new ButtonBuilder().setCustomId(`fila_sair_${canalId}_${precoId}`).setLabel('Sair').setStyle(ButtonStyle.Danger).setEmoji(emojiSair)
             ));
         } else {
             rows.push(new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`fila_entrar_${canalId}_${precoId}`).setLabel('Entrar').setStyle(ButtonStyle.Success),
-                new ButtonBuilder().setCustomId(`fila_full_ump_${canalId}_${precoId}`).setLabel('Full UMP XM8').setStyle(ButtonStyle.Primary),
-                new ButtonBuilder().setCustomId(`fila_sair_${canalId}_${precoId}`).setLabel('Sair').setStyle(ButtonStyle.Danger)
+                new ButtonBuilder().setCustomId(`fila_entrar_${canalId}_${precoId}`).setLabel('Entrar').setStyle(ButtonStyle.Success).setEmoji(emojiEntrar),
+                new ButtonBuilder().setCustomId(`fila_full_ump_${canalId}_${precoId}`).setLabel('Full UMP XM8').setStyle(ButtonStyle.Primary).setEmoji(emojiFullUmp),
+                new ButtonBuilder().setCustomId(`fila_sair_${canalId}_${precoId}`).setLabel('Sair').setStyle(ButtonStyle.Danger).setEmoji(emojiSair)
             ));
         }
     } else if (modalidade === 'Tático') {
         rows.push(new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`fila_entrar_${canalId}_${precoId}`).setLabel('Entrar').setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId(`fila_sair_${canalId}_${precoId}`).setLabel('Sair').setStyle(ButtonStyle.Danger)
+            new ButtonBuilder().setCustomId(`fila_entrar_${canalId}_${precoId}`).setLabel('Entrar').setStyle(ButtonStyle.Success).setEmoji(emojiEntrar),
+            new ButtonBuilder().setCustomId(`fila_sair_${canalId}_${precoId}`).setLabel('Sair').setStyle(ButtonStyle.Danger).setEmoji(emojiSair)
         ));
     } else if (modalidade === 'Misto') {
         if (tipo === '2v2') {
             rows.push(new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId(`fila_1emu_${canalId}_${precoId}`).setLabel('1 Emu').setStyle(ButtonStyle.Primary),
-                new ButtonBuilder().setCustomId(`fila_sair_${canalId}_${precoId}`).setLabel('Sair').setStyle(ButtonStyle.Danger)
+                new ButtonBuilder().setCustomId(`fila_sair_${canalId}_${precoId}`).setLabel('Sair').setStyle(ButtonStyle.Danger).setEmoji(emojiSair)
             ));
         } else if (tipo === '3v3') {
             rows.push(new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId(`fila_1emu_${canalId}_${precoId}`).setLabel('1 Emu').setStyle(ButtonStyle.Primary),
                 new ButtonBuilder().setCustomId(`fila_2emu_${canalId}_${precoId}`).setLabel('2 Emu').setStyle(ButtonStyle.Primary),
-                new ButtonBuilder().setCustomId(`fila_sair_${canalId}_${precoId}`).setLabel('Sair').setStyle(ButtonStyle.Danger)
+                new ButtonBuilder().setCustomId(`fila_sair_${canalId}_${precoId}`).setLabel('Sair').setStyle(ButtonStyle.Danger).setEmoji(emojiSair)
             ));
         } else if (tipo === '4v4') {
             rows.push(new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId(`fila_1emu_${canalId}_${precoId}`).setLabel('1 Emu').setStyle(ButtonStyle.Primary),
                 new ButtonBuilder().setCustomId(`fila_2emu_${canalId}_${precoId}`).setLabel('2 Emu').setStyle(ButtonStyle.Primary),
                 new ButtonBuilder().setCustomId(`fila_3emu_${canalId}_${precoId}`).setLabel('3 Emu').setStyle(ButtonStyle.Primary),
-                new ButtonBuilder().setCustomId(`fila_sair_${canalId}_${precoId}`).setLabel('Sair').setStyle(ButtonStyle.Danger)
+                new ButtonBuilder().setCustomId(`fila_sair_${canalId}_${precoId}`).setLabel('Sair').setStyle(ButtonStyle.Danger).setEmoji(emojiSair)
             ));
         } else {
             rows.push(new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`fila_entrar_${canalId}_${precoId}`).setLabel('Entrar').setStyle(ButtonStyle.Success),
-                new ButtonBuilder().setCustomId(`fila_sair_${canalId}_${precoId}`).setLabel('Sair').setStyle(ButtonStyle.Danger)
+                new ButtonBuilder().setCustomId(`fila_entrar_${canalId}_${precoId}`).setLabel('Entrar').setStyle(ButtonStyle.Success).setEmoji(emojiEntrar),
+                new ButtonBuilder().setCustomId(`fila_sair_${canalId}_${precoId}`).setLabel('Sair').setStyle(ButtonStyle.Danger).setEmoji(emojiSair)
             ));
         }
     }

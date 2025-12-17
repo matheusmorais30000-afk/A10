@@ -1,64 +1,77 @@
-const { SlashCommandBuilder, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { isAdmin } = require('../utils/permissions');
-const { embedErro, embedInfo } = require('../utils/embeds');
+const { embedErro } = require('../utils/embeds');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('filas')
-        .setDescription('Configurar categorias de filas de partida (Admin)'),
+        .setDescription('Configurar categorias de filas (Admin)'),
 
     async execute(interaction) {
-        // Verificar permissão
-        if (!isAdmin(interaction.member)) {
-            return interaction.reply({
-                embeds: [embedErro('Sem Permissão', 'Apenas administradores podem configurar filas.')],
-                ephemeral: true
-            });
+        try {
+            // Verificar permissão
+            if (!isAdmin(interaction.member)) {
+                return interaction.reply({
+                    embeds: [embedErro('Sem Permissão', 'Apenas administradores podem configurar filas.')],
+                    ephemeral: true
+                });
+            }
+
+            // Embed com 5 botões
+            const embed = new EmbedBuilder()
+                .setColor(0x5865F2)
+                .setTitle('⚙️ Configurar Filas')
+                .setDescription('Selecione qual categoria deseja configurar:')
+                .addFields(
+                    { name: '🎮 Categoria de Partidas', value: 'Categoria onde as partidas confirmadas serão criadas', inline: true },
+                    { name: '📱 Mobile', value: 'Categoria das filas Mobile', inline: true },
+                    { name: '🖥️ Emulador', value: 'Categoria das filas Emulador', inline: true },
+                    { name: '🎪 Misto', value: 'Categoria das filas Misto', inline: true },
+                    { name: '⚔️ Tático', value: 'Categoria das filas Tático', inline: true }
+                )
+                .setFooter({ text: 'Bot Xenon' })
+                .setTimestamp();
+
+            const buttons = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('config_categoria_partida')
+                    .setLabel('Categoria')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('🎮'),
+                new ButtonBuilder()
+                    .setCustomId('config_filas_mobile')
+                    .setLabel('Mobile')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('📱'),
+                new ButtonBuilder()
+                    .setCustomId('config_filas_emulador')
+                    .setLabel('Emulador')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('🖥️'),
+                new ButtonBuilder()
+                    .setCustomId('config_filas_misto')
+                    .setLabel('Misto')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('🎪'),
+                new ButtonBuilder()
+                    .setCustomId('config_filas_tatico')
+                    .setLabel('Tático')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('⚔️')
+            );
+
+            await interaction.reply({ embeds: [embed], components: [buttons], ephemeral: true });
+        } catch (error) {
+            console.error('[ERRO] Comando filas:', error);
+            try {
+                if (interaction.replied || interaction.deferred) {
+                    await interaction.followUp({ embeds: [embedErro('Erro', 'Ocorreu um erro.')], ephemeral: true });
+                } else {
+                    await interaction.reply({ embeds: [embedErro('Erro', 'Ocorreu um erro.')], ephemeral: true });
+                }
+            } catch (e) {
+                console.error('[ERRO] Falha ao responder:', e);
+            }
         }
-
-        // Criar select menu com modalidades
-        const row = new ActionRowBuilder().addComponents(
-            new StringSelectMenuBuilder()
-                .setCustomId('filas_modalidade')
-                .setPlaceholder('Selecione a modalidade')
-                .addOptions([
-                    {
-                        label: 'Mobile',
-                        description: 'Partidas para jogadores de celular',
-                        value: 'Mobile',
-                        emoji: '📱'
-                    },
-                    {
-                        label: 'Emulador',
-                        description: 'Partidas para jogadores de emulador',
-                        value: 'Emulador',
-                        emoji: '💻'
-                    },
-                    {
-                        label: 'Tático',
-                        description: 'Partidas no modo tático',
-                        value: 'Tático',
-                        emoji: '🎯'
-                    },
-                    {
-                        label: 'Misto',
-                        description: 'Partidas mistas (Mobile + Emulador)',
-                        value: 'Misto',
-                        emoji: '🔀'
-                    }
-                ])
-        );
-
-        await interaction.reply({
-            embeds: [embedInfo('🎮 Configurar Filas', 
-                'Selecione a modalidade para criar os canais de fila.\n\n' +
-                '**Atenção:** Antes de usar este comando, certifique-se de:\n' +
-                '• Ter configurado os valores de aposta em `/config`\n' +
-                '• Ter uma categoria do Discord pronta para os canais\n\n' +
-                'O bot irá criar automaticamente canais para cada tipo (1v1, 2v2, 3v3, 4v4) e cada valor configurado.'
-            )],
-            components: [row],
-            ephemeral: true
-        });
     }
 };

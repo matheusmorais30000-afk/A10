@@ -136,8 +136,23 @@ const database = {
     },
 
     updateConfig: (guildId, field, value) => {
-        const stmt = db.prepare(`UPDATE config SET ${field} = ? WHERE guild_id = ?`);
-        return stmt.run(value, guildId);
+        try {
+            const stmt = db.prepare(`UPDATE config SET ${field} = ? WHERE guild_id = ?`);
+            return stmt.run(value, guildId);
+        } catch (e) {
+            // Se a coluna não existir, tentar criá-la como TEXT e reexecutar
+            if (e && /no such column/i.test(e.message || '')) {
+                try {
+                    db.prepare(`ALTER TABLE config ADD COLUMN ${field} TEXT`).run();
+                } catch (err) {
+                    // se falhar, rethrow original
+                    throw e;
+                }
+                const stmt2 = db.prepare(`UPDATE config SET ${field} = ? WHERE guild_id = ?`);
+                return stmt2.run(value, guildId);
+            }
+            throw e;
+        }
     },
 
     // Valores (preços das apostas)

@@ -16,11 +16,10 @@ module.exports = {
             .setCustomId('visual_main')
             .setPlaceholder('Escolha o que quer editar')
             .addOptions([
-                { label: 'Embeds', value: 'embeds', description: 'Editar as embeds (partida, mediador, ticket, ranking)' },
-                { label: 'Botões', value: 'botoes', description: 'Editar botões (por embed/fila, mediador, ranking)' }
+                { label: 'Embeds', value: 'embeds', description: 'Editar as embeds (partida, mediador, ticket, ranking)' }
             ]);
 
         const row = new ActionRowBuilder().addComponents(menu);
-        await interaction.reply({ embeds: [embedInfo('Visual Editor', 'Selecione se quer editar Embeds ou Botões.')], components: [row], ephemeral: true });
+        await interaction.reply({ embeds: [embedInfo('Visual Editor', 'Selecione a embed que deseja editar.')], components: [row], ephemeral: true });
     }
 };
